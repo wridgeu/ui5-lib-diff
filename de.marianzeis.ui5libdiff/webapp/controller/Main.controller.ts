@@ -49,7 +49,7 @@ export default class Main extends BaseController {
 	}
 
 	triggerLoadingData(UI5Type: string): void {
-		if (this.dataIsLoading && this.ui5TypeLoading !== UI5Type) return; 
+		if (this.dataIsLoading && this.ui5TypeLoading !== UI5Type) return;
 		if (UI5Type === "SAPUI5" && !this.SAPUI5DataLoaded) {
 			this.ui5TypeLoading = "SAPUI5";
 			this.SAPUI5DataLoading = true;
@@ -58,7 +58,7 @@ export default class Main extends BaseController {
 				`./data/consolidated${UI5Type}.json`
 			);
 			this.dataLoaded.then(() => {
-				this.dataIsLoading = false
+				this.dataIsLoading = false;
 			});
 			this.getView().setModel(this.SAPUI5Model, "data");
 			this.SAPUI5SelectModel = new JSONModel();
@@ -103,20 +103,20 @@ export default class Main extends BaseController {
 		}
 	}
 
-	onPatternMatchedOnce(): void {
+	onPatternMatchedOnce(event: Router$RoutePatternMatchedEvent): void {
 		this.getRouter()
 			.getRoute("main")
 			.attachPatternMatched(this.onPatternMatched, this);
-		this.getQueryParameter();
+		this.getQueryParameter(event.getParameter("arguments"));
 	}
 
-	onPatternMatched(): void {
-		this.getQueryParameter();
+	onPatternMatched(event: Router$RoutePatternMatchedEvent): void {
+		this.getQueryParameter(event.getParameter("arguments"));
 	}
 
 	// get parameter versionFrom and versionTo from URL Parameters
-	public async getQueryParameter(): void {
-		const mParams = new URLSearchParams(window.location.search);
+	public async getQueryParameter(params): Promise<void> {
+		const mParams = new URLSearchParams(params["?query"]);
 		const versionFrom = mParams.get("versionFrom");
 		const versionTo = mParams.get("versionTo");
 		const ui5Type = mParams.get("ui5Type");
@@ -159,7 +159,7 @@ export default class Main extends BaseController {
 		}
 	}
 
-	public async handleVersionChange(): void {
+	public async handleVersionChange(): Promise<void> {
 		this.getView().setBusyIndicatorDelay(0);
 		this.getView().setBusy(true);
 		this.UI5Type = this.getView().byId("SegmentedButtonUI5").getSelectedKey();
@@ -359,7 +359,20 @@ export default class Main extends BaseController {
 	}
 
 	onNavToWhatsnew(): void {
-		this.getRouter().navTo("whatsnew");
+		const mParams = new URLSearchParams(
+			this.getRouter().getHashChanger().getHash()
+		);
+		this.getRouter().navTo(
+			"whatsnew",
+			{
+				query: {
+					versionFrom: mParams.get("versionFrom"),
+					versionTo: mParams.get("versionTo"),
+					ui5Type: mParams.get("ui5Type"),
+				},
+			},
+			true
+		);
 	}
 
 	public updateURLParameters(): void {
@@ -370,7 +383,9 @@ export default class Main extends BaseController {
 			.getSelectedKey();
 		const ui5Type = this.getView().byId("SegmentedButtonUI5").getSelectedKey();
 		// Get the current URL parameters
-		const mParams = new URLSearchParams(window.location.search);
+		const mParams = new URLSearchParams(
+			this.getRouter().getHashChanger().getHash()
+		);
 
 		// Update only the versionTo and versionFrom parameters
 		if (versionTo) {
@@ -386,11 +401,17 @@ export default class Main extends BaseController {
 		}
 		mParams.set("ui5Type", ui5Type);
 
-		// Update the browser's URL without causing a page refresh
-		const newURL = `${window.location.origin}${
-			window.location.pathname
-		}?${mParams.toString()}`;
-		window.history.pushState({}, "", newURL);
+		this.navTo(
+			"main",
+			{
+				query: {
+					versionFrom: mParams.get("versionFrom"),
+					versionTo: mParams.get("versionTo"),
+					ui5Type: mParams.get("ui5Type"),
+				},
+			},
+			false
+		);
 	}
 
 	copyLinkToClipboardMain(event: Event): void {

@@ -5,6 +5,7 @@ import Device from "sap/ui/Device";
 import Sorter from "sap/ui/model/Sorter";
 import Filter from "sap/ui/model/Filter";
 import MessageToast from "sap/m/MessageToast";
+import { Router$RoutePatternMatchedEvent } from "sap/ui/core/routing/Router";
 
 /**
  * @namespace de.marianzeis.ui5libdiff.controller
@@ -14,17 +15,19 @@ export default class Whatsnew extends BaseController {
 	dataloadedPromise: Promise<void>;
 	whatsnewDataLoadled: Promise<any>;
 	selectDataLoaded: Promise<any>;
-	public async onInit(): void {
+	public async onInit(): Promise<void> {
 		this.getView().setBusyIndicatorDelay(0);
 		this.getView().setBusy(true);
 		this.getRouter()
 			.getRoute("whatsnew")
 			.attachEventOnce("patternMatched", this.onPatternMatchedOnce, this);
 		const whatsnewModel = new JSONModel();
-		this.whatsnewDataLoadled =  whatsnewModel.loadData("./data/whatsnew.json");
+		this.whatsnewDataLoadled = whatsnewModel.loadData("./data/whatsnew.json");
 		this.getView().setModel(whatsnewModel, "whatsnewData");
-		const selectModel  = new JSONModel()
-		this.selectDataLoaded =  selectModel.loadData("./data/selectVersionsSAPUI5.json");
+		const selectModel = new JSONModel();
+		this.selectDataLoaded = selectModel.loadData(
+			"./data/selectVersionsSAPUI5.json"
+		);
 		this.getView().setModel(selectModel, "select");
 		this._mViewSettingsDialogs = {};
 		this.getView().setModel(new JSONModel(), "whatsnew");
@@ -33,25 +36,38 @@ export default class Whatsnew extends BaseController {
 	}
 
 	onNavBack(): void {
-		this.getRouter().navTo("main");
+		// "/whatsnew?someKey" gets interpreted as one query param when passing the raw hash to URLSearchParams
+		const mParams = new URLSearchParams(
+			this.getRouter().getRouteInfoByHash(
+				this.getRouter().getHashChanger().getHash()
+			).arguments["?query"]
+		);
+
+		this.getRouter().navTo("main", {
+			query: {
+				versionFrom: mParams.get("versionFrom"),
+				versionTo: mParams.get("versionTo"),
+				ui5Type: mParams.get("ui5Type"),
+			},
+		});
 	}
 
-	onPatternMatchedOnce(): void {
+	onPatternMatchedOnce(event: Router$RoutePatternMatchedEvent): void {
 		this.getRouter()
 			.getRoute("whatsnew")
 			.attachPatternMatched(this.onPatternMatched, this);
-		this.getQueryParameter();
+		this.getQueryParameter(event.getParameter("arguments"));
 	}
 
-	onPatternMatched(): void {
-		this.getQueryParameter();
+	onPatternMatched(event: Router$RoutePatternMatchedEvent): void {
+		this.getQueryParameter(event.getParameter("arguments"));
 	}
 
 	// get parameter versionFrom and versionTo from URL Parameters
-	public async getQueryParameter(): void {
+	public async getQueryParameter(params): Promise<void> {
 		await Promise.all([this.whatsnewDataLoadled, this.selectDataLoaded]);
 		const data = this.getView().getModel("select").getData();
-		const mParams = new URLSearchParams(window.location.search);
+		const mParams = new URLSearchParams(params["?query"]);
 		const versionFrom = mParams.get("versionFrom");
 		const versionTo = mParams.get("versionTo");
 
@@ -125,7 +141,6 @@ export default class Whatsnew extends BaseController {
 
 			// Update your model if necessary
 			this.getView().getModel("whatsnew").setData(filteredData);
-			
 		}
 		this.getView().setBusy(false);
 	}
@@ -240,8 +255,11 @@ export default class Whatsnew extends BaseController {
 			.getSelectedKey();
 
 		// Get the current URL parameters
-		const mParams = new URLSearchParams(window.location.search);
-
+		const mParams = new URLSearchParams(
+			this.getRouter().getRouteInfoByHash(
+				this.getRouter().getHashChanger().getHash()
+			).arguments["?query"]
+		);
 		// Update only the versionTo and versionFrom parameters
 		if (versionTo) {
 			mParams.set("versionTo", versionTo);
@@ -256,9 +274,16 @@ export default class Whatsnew extends BaseController {
 		}
 
 		// Update the browser's URL without causing a page refresh, including the hash fragment
-		const newURL = `${window.location.origin}${
-			window.location.pathname
-		}?${mParams.toString()}${window.location.hash}`;
-		window.history.replaceState({}, "", newURL);
+		this.navTo(
+			"whatsnew",
+			{
+				query: {
+					versionFrom: mParams.get("versionFrom"),
+					versionTo: mParams.get("versionTo"),
+					ui5Type: mParams.get("ui5Type"),
+				},
+			},
+			false
+		);
 	}
 }

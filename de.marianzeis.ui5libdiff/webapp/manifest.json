@@ -69,12 +69,12 @@
 			},
 			"routes": [
 				{
-					"pattern": "",
+					"pattern": ":?query:",
 					"name": "main",
 					"target": "main"
 				},
 				{
-					"pattern": "whatsnew",
+					"pattern": "whatsnew:?query:",
 					"name": "whatsnew",
 					"target": "whatsnew"
 				}
